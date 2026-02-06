@@ -1,5 +1,6 @@
 import os
 import json
+from datetime import time
 from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import (
@@ -111,7 +112,7 @@ def main():
     # رسالة يومية الساعة 7 صباحًا
     app.job_queue.run_daily(
         send_daily,
-        time=(7, 0, 0)
+        time=time(hour=7, minute=0)
     )
 
     print("✅ Naseem Bot is running...")
