@@ -90,8 +90,13 @@ def delete_user(chat_id):
 def send_message(chat_id, text):
     requests.post(
         f"{TELEGRAM_API}/sendMessage",
-        json={"chat_id": chat_id, "text": text}
+        json={
+            "chat_id": chat_id,
+            "text": text,
+            "parse_mode": "HTML"
+        }
     )
+
 
 def build_message(city):
     weather = get_weather(city)
@@ -101,17 +106,22 @@ def build_message(city):
         return None
 
     return f"""
-🌬️ Naseem | نسيم
+<b>🌬️ Naseem | نسيم</b>
 
-📍 {city}
+📍 <b>{city}</b>
 
+━━━━━━━━━━━━━━
 {weather}
+━━━━━━━━━━━━━━
 
-🕌 أوقات الصلاة:
+🕌 <b>أوقات الصلاة اليوم</b>
+
 {prayers if prayers else "غير متاحة حالياً"}
 
-📅 ستصلك هذه المعلومات يومياً الساعة 4 صباحاً.
+━━━━━━━━━━━━━━
+⏰ تصلك هذه الرسالة يومياً الساعة <b>04:00 صباحاً</b>
 """
+
 
 
 
@@ -151,11 +161,29 @@ async def webhook(request: Request):
     if not existing_city:
         msg = build_message(text)
         if not msg:
-            send_message(chat_id, "❌ المدينة غير موجودة.")
+            send_message(
+    chat_id,
+    "❌ <b>لم أستطع العثور على المدينة.</b>\n\n"
+    "تأكد من كتابتها بالإنجليزية.\n"
+    "مثال: Berlin"
+)
+
             return {"ok": True}
 
         save_user(chat_id, text)
-        send_message(chat_id, f"🎉 شكراً لاشتراكك!\n\n{msg}")
+        send_message(
+    chat_id,
+    f"""
+<b>🎉 تم الاشتراك بنجاح!</b>
+
+مرحباً بك في <b>Naseem</b> 🌬️
+
+ستصلك معلومات الطقس وأوقات الصلاة يومياً.
+
+{msg}
+"""
+)
+
         return {"ok": True}
 
     # مستخدم مسجل
@@ -170,7 +198,19 @@ async def webhook(request: Request):
         send_message(chat_id, "✏️ أرسل اسم مدينتك الجديدة.")
         return {"ok": True}
 
-    send_message(chat_id, f"مدينتك الحالية: {existing_city}")
+    send_message(
+    chat_id,
+    f"""
+📍 مدينتك الحالية: <b>{existing_city}</b>
+
+للحصول على المعلومات:
+اكتب اسم المدينة مرة أخرى
+
+لتغيير المدينة:
+اكتب <b>تغيير</b>
+"""
+)
+
     return {"ok": True}
 
 
