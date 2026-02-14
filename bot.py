@@ -31,7 +31,7 @@ def save_users(users):
         json.dump(users, f, ensure_ascii=False, indent=2)
 
 
-async def now(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = (
         "🌬️ *Naseem | نسيم*\n\n"
         "بوت يومي يرسل لك:\n"
@@ -57,7 +57,51 @@ async def set_city(update: Update, context: ContextTypes.DEFAULT_TYPE):
     save_users(users)
 
     await update.message.reply_text(f"✅ تم حفظ مدينتك: {city}")
+# 👇 إرسال الحالة فورًا
+    weather = get_weather(city)
+    prayers = get_prayer_times(city)
+    tip = get_tip(weather)
 
+    message = f"""
+🌬️ *Naseem | نسيم*
+
+🌦️ *طقس اليوم – {city}*
+{weather}
+
+🕌 *أوقات الصلاة*
+{prayers}
+
+🧠 *نصيحة نسيم*
+{tip}
+"""
+    await update.message.reply_text(message, parse_mode="Markdown")
+
+async def now(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = str(update.effective_user.id)
+    users = load_users()
+
+    if user_id not in users:
+        await update.message.reply_text("❗ لم تحدد مدينة بعد. استخدم /city")
+        return
+
+    city = users[user_id]["city"]
+    weather = get_weather(city)
+    prayers = get_prayer_times(city)
+    tip = get_tip(weather)
+
+    message = f"""
+🌬️ *Naseem | نسيم*
+
+🌦️ *طقس اليوم – {city}*
+{weather}
+
+🕌 *أوقات الصلاة*
+{prayers}
+
+🧠 *نصيحة نسيم*
+{tip}
+"""
+    await update.message.reply_text(message, parse_mode="Markdown")
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = str(update.effective_user.id)
