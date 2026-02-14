@@ -93,38 +93,6 @@ def send_message(chat_id, text):
         json={"chat_id": chat_id, "text": text}
     )
 
-
-def get_coordinates(city):
-    geo = requests.get(
-        f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1&country=DE"
-    ).json()
-
-    if "results" not in geo or not geo["results"]:
-        return None
-
-    return geo["results"][0]["latitude"], geo["results"][0]["longitude"]
-
-
-def get_weather(city):
-    coords = get_coordinates(city)
-    if not coords:
-        return None
-
-    lat, lon = coords
-
-    weather = requests.get(
-        f"https://api.open-meteo.com/v1/forecast?latitude={lat}&longitude={lon}&current_weather=true"
-    ).json()
-
-    if "current_weather" not in weather:
-        return None
-
-    temp = weather["current_weather"]["temperature"]
-    wind = weather["current_weather"]["windspeed"]
-
-    return f"🌡️ الحرارة: {temp}°C\n💨 الرياح: {wind} km/h"
-
-
 def build_message(city):
     weather = get_weather(city)
     prayers = get_prayer_times(city)
