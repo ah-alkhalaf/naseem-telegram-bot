@@ -151,8 +151,9 @@ def main():
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("city", set_city))
-    app.add_handler(CommandHandler("stop", stop))
     app.add_handler(CommandHandler("now", now))
+    app.add_handler(CommandHandler("stop", stop))
+    
 
     # رسالة يومية الساعة 7 صباحًا
     app.job_queue.run_daily(
