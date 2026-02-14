@@ -125,6 +125,8 @@ def get_weather(city):
 
 def build_message(city):
     weather = get_weather(city)
+    prayers = get_prayer_times(city)
+
     if not weather:
         return None
 
@@ -135,8 +137,12 @@ def build_message(city):
 
 {weather}
 
+🕌 أوقات الصلاة:
+{prayers if prayers else "غير متاحة حالياً"}
+
 📅 ستصلك هذه المعلومات يومياً الساعة 4 صباحاً.
 """
+
 
 
 # =========================
