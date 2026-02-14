@@ -31,7 +31,7 @@ def save_users(users):
         json.dump(users, f, ensure_ascii=False, indent=2)
 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def now(update: Update, context: ContextTypes.DEFAULT_TYPE):
     message = (
         "🌬️ *Naseem | نسيم*\n\n"
         "بوت يومي يرسل لك:\n"
