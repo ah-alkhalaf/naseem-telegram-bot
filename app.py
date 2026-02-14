@@ -5,6 +5,7 @@ from weather import get_weather
 from prayer import get_prayer_times
 from fastapi import FastAPI, Request, Header
 from dotenv import load_dotenv
+from datetime import datetime
 
 load_dotenv()
 
@@ -97,7 +98,15 @@ def send_message(chat_id, text):
         }
     )
 
-
+def greeting():
+    hour = datetime.now().hour
+    if 5 <= hour < 12:
+        return "☀️ صباح الخير"
+    elif 12 <= hour < 18:
+        return "🌤️ مساء الخير"
+    else:
+        return "🌙 مساء هادئ"
+        
 def build_message(city):
     weather = get_weather(city)
     prayers = get_prayer_times(city)
@@ -152,7 +161,27 @@ async def webhook(request: Request):
         return {"ok": True}
 
     if text.startswith("/"):
-        send_message(chat_id, "✍️ فقط اكتب اسم مدينتك.")
+            send_message(
+        chat_id,
+        """
+<b>🌬️ أهلاً بك في Naseem | نسيم</b>
+
+بوت يومي يرافق صباحك 🌅
+ويزوّدك بأهم المعلومات التي تهمك:
+
+• 🌡️ حالة الطقس الحالية  
+• 🌤️ وصف الطقس   
+• 💨 سرعة الرياح  
+• 🕌 أوقات الصلاة الدقيقة  
+
+━━━━━━━━━━━━━━
+
+📍 <b>لبدء الاستخدام:</b>  
+اكتب اسم مدينتك بالإنجليزية
+
+مثال: <i>Berlin</i>
+"""
+    )
         return {"ok": True}
 
     existing_city = get_user(chat_id)
@@ -174,13 +203,17 @@ async def webhook(request: Request):
         send_message(
     chat_id,
     f"""
-<b>🎉 تم الاشتراك بنجاح!</b>
+<b>✨ تم تفعيل نسيم لمدينتك بنجاح</b>
 
-مرحباً بك في <b>Naseem</b> 🌬️
+مرحباً بك 🌬️  
+سيصلُك تحديث يومي أنيق كل صباح.
 
-ستصلك معلومات الطقس وأوقات الصلاة يومياً.
+━━━━━━━━━━━━━━
 
 {msg}
+
+━━━━━━━━━━━━━━
+📅 أول تحديث يومي سيصلك غداً الساعة <b>04:00 صباحاً</b>
 """
 )
 
@@ -195,7 +228,14 @@ async def webhook(request: Request):
 
     if text.lower() in ["change", "تغيير"]:
         delete_user(chat_id)
-        send_message(chat_id, "✏️ أرسل اسم مدينتك الجديدة.")
+        send_message(
+    chat_id,
+    """
+✏️ <b>تم إلغاء المدينة السابقة.</b>
+
+الآن اكتب اسم مدينتك الجديدة بالإنجليزية.
+"""
+)
         return {"ok": True}
 
     send_message(
