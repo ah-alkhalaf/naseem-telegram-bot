@@ -1,6 +1,8 @@
 import os
 import requests
 import psycopg2
+from weather import get_weather
+from prayer import get_prayer_times
 from fastapi import FastAPI, Request, Header
 from dotenv import load_dotenv
 
