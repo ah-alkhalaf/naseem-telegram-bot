@@ -1,5 +1,6 @@
 import os
 import requests
+import psycopg2
 from fastapi import FastAPI, Request, Header
 from dotenv import load_dotenv
 
@@ -7,13 +8,77 @@ load_dotenv()
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 CRON_SECRET = os.getenv("CRON_SECRET")
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 TELEGRAM_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 app = FastAPI()
 
-# تخزين بسيط في الذاكرة
-users = {}
+# =========================
+# Database
+# =========================
+
+def get_db():
+    return psycopg2.connect(DATABASE_URL)
+
+def init_db():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            chat_id BIGINT PRIMARY KEY,
+            city TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    conn.commit()
+    cur.close()
+    conn.close()
+
+init_db()
+
+
+def save_user(chat_id, city):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO users (chat_id, city)
+        VALUES (%s, %s)
+        ON CONFLICT (chat_id)
+        DO UPDATE SET city = EXCLUDED.city
+    """, (chat_id, city))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def get_user(chat_id):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT city FROM users WHERE chat_id = %s", (chat_id,))
+    result = cur.fetchone()
+    cur.close()
+    conn.close()
+    return result[0] if result else None
+
+
+def get_all_users():
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("SELECT chat_id, city FROM users")
+    rows = cur.fetchall()
+    cur.close()
+    conn.close()
+    return rows
+
+
+def delete_user(chat_id):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("DELETE FROM users WHERE chat_id = %s", (chat_id,))
+    conn.commit()
+    cur.close()
+    conn.close()
 
 
 # =========================
@@ -21,18 +86,15 @@ users = {}
 # =========================
 
 def send_message(chat_id, text):
-    try:
-        requests.post(
-            f"{TELEGRAM_API}/sendMessage",
-            json={"chat_id": chat_id, "text": text}
-        )
-    except Exception as e:
-        print("Telegram error:", e)
+    requests.post(
+        f"{TELEGRAM_API}/sendMessage",
+        json={"chat_id": chat_id, "text": text}
+    )
 
 
 def get_coordinates(city):
     geo = requests.get(
-        f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1&language=en&country=DE"
+        f"https://geocoding-api.open-meteo.com/v1/search?name={city}&count=1&country=DE"
     ).json()
 
     if "results" not in geo or not geo["results"]:
@@ -61,30 +123,8 @@ def get_weather(city):
     return f"🌡️ الحرارة: {temp}°C\n💨 الرياح: {wind} km/h"
 
 
-def get_prayer_times(city):
-    data = requests.get(
-        f"https://api.aladhan.com/v1/timingsByCity?city={city}&country=DE&method=3"
-    ).json()
-
-    if "data" not in data:
-        return None
-
-    t = data["data"]["timings"]
-
-    return (
-        f"الفجر: {t.get('Fajr')}\n"
-        f"الشروق: {t.get('Sunrise')}\n"
-        f"الظهر: {t.get('Dhuhr')}\n"
-        f"العصر: {t.get('Asr')}\n"
-        f"المغرب: {t.get('Maghrib')}\n"
-        f"العشاء: {t.get('Isha')}"
-    )
-
-
 def build_message(city):
     weather = get_weather(city)
-    prayers = get_prayer_times(city)
-
     if not weather:
         return None
 
@@ -94,9 +134,6 @@ def build_message(city):
 📍 {city}
 
 {weather}
-
-🕌 أوقات الصلاة:
-{prayers if prayers else "غير متاحة"}
 
 📅 ستصلك هذه المعلومات يومياً الساعة 4 صباحاً.
 """
@@ -108,7 +145,7 @@ def build_message(city):
 
 @app.get("/")
 def home():
-    return {"status": "Running"}
+    return {"status": "Running with PostgreSQL"}
 
 
 # =========================
@@ -132,33 +169,32 @@ async def webhook(request: Request):
         send_message(chat_id, "✍️ فقط اكتب اسم مدينتك.")
         return {"ok": True}
 
-    # تسجيل أول مرة
-    if chat_id not in users:
+    existing_city = get_user(chat_id)
+
+    # أول تسجيل
+    if not existing_city:
         msg = build_message(text)
         if not msg:
-            send_message(chat_id, "❌ المدينة غير موجودة. اكتب الاسم بالإنجليزية.")
+            send_message(chat_id, "❌ المدينة غير موجودة.")
             return {"ok": True}
 
-        users[chat_id] = text
+        save_user(chat_id, text)
         send_message(chat_id, f"🎉 شكراً لاشتراكك!\n\n{msg}")
         return {"ok": True}
 
     # مستخدم مسجل
-    city = users[chat_id]
-
-    if text.lower() == city.lower():
-        msg = build_message(city)
+    if text.lower() == existing_city.lower():
+        msg = build_message(existing_city)
         if msg:
             send_message(chat_id, msg)
         return {"ok": True}
 
     if text.lower() in ["change", "تغيير"]:
-        del users[chat_id]
+        delete_user(chat_id)
         send_message(chat_id, "✏️ أرسل اسم مدينتك الجديدة.")
         return {"ok": True}
 
-    send_message(chat_id, f"مدينتك الحالية: {city}\nاكتب اسم المدينة لتحديث المعلومات.")
-
+    send_message(chat_id, f"مدينتك الحالية: {existing_city}")
     return {"ok": True}
 
 
@@ -171,7 +207,9 @@ async def daily(x_cron_secret: str = Header(None)):
     if x_cron_secret != CRON_SECRET:
         return {"error": "unauthorized"}
 
-    for chat_id, city in users.items():
+    users = get_all_users()
+
+    for chat_id, city in users:
         msg = build_message(city)
         if msg:
             send_message(chat_id, msg)
